@@ -47,6 +47,20 @@ public abstract class MixinPlayerEntity extends LivingEntity {
     public void travel(Vec3 movementInput, CallbackInfo ci) {
         if ((Object)this instanceof LocalPlayer player && Flashback.isInReplay()) {
             FlashbackConfig config = Flashback.getConfig();
+            if (player.isSpectator()) {
+                boolean noClip = player.noPhysics;
+                player.noPhysics = false;
+
+                super.travel(movementInput);
+                if (!(player.input.jumping || player.input.shiftKeyDown)) {
+                    Vec3 motion = player.getDeltaMovement();
+                    player.setDeltaMovement(motion.x, 0, motion.z);
+                }
+
+                player.noPhysics = noClip;
+                ci.cancel();
+                return;
+            }
 
             boolean doAirplaneFlight = config.flightCameraDirection || config.flightMomentum < 0.98 ||
                 config.flightLockX || config.flightLockY || config.flightLockZ;
