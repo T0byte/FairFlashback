@@ -53,6 +53,7 @@
     "defaultRequire": 1
   },
   "mixins": [
+    "commands.MixinCommand",
     "MixinThreadedLevelLightEngine",
     "compat.MixinSodiumWorldRenderer",
     "compat.axiom.MixinAxiomEditorUI",
