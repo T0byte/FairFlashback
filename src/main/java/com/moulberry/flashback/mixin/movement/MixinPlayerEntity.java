@@ -50,6 +50,7 @@ public abstract class MixinPlayerEntity extends LivingEntity {
             if (player.isSpectator()) {
                 boolean noClip = player.noPhysics;
                 player.noPhysics = false;
+                player.setNoGravity(true);
 
                 super.travel(movementInput);
                 if (!(player.input.jumping || player.input.shiftKeyDown)) {
@@ -58,6 +59,7 @@ public abstract class MixinPlayerEntity extends LivingEntity {
                 }
 
                 player.noPhysics = noClip;
+                player.setNoGravity(false);
                 ci.cancel();
                 return;
             }
