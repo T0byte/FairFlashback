@@ -8,6 +8,7 @@ import com.moulberry.flashback.state.EditorState;
 import com.moulberry.flashback.state.EditorStateManager;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.player.RemotePlayer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -21,6 +22,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(value = Player.class, priority = 1100)
 public abstract class MixinPlayerEntity extends LivingEntity {
+    private Player nearestPlayerOnFirstTick = null;
+
 
     protected MixinPlayerEntity() {
         super(null, null);
@@ -45,7 +48,7 @@ public abstract class MixinPlayerEntity extends LivingEntity {
 
     @Inject(method="travel", at=@At(value = "HEAD"), cancellable = true)
     public void travel(Vec3 movementInput, CallbackInfo ci) {
-        if ((Object)this instanceof LocalPlayer player && Flashback.isInReplay()) {
+        if ((Object) this instanceof LocalPlayer player && Flashback.isInReplay()) {
             FlashbackConfigV1 config = Flashback.getConfig();
 
             if (player.isSpectator()) {
@@ -59,17 +62,33 @@ public abstract class MixinPlayerEntity extends LivingEntity {
                     player.setDeltaMovement(motion.x, 0, motion.z);
                 }
 
+                // Store nearest player on first tick, then check distance to that player
+                if (nearestPlayerOnFirstTick == null) {
+                    double nearestDistance = Double.MAX_VALUE;
+                    for (net.minecraft.world.entity.player.Player otherPlayer : player.level().players()) {
+                        if (otherPlayer != player) {
+                            double distance = otherPlayer.position().distanceTo(player.position());
+                            if (distance < nearestDistance) {
+                                nearestDistance = distance;
+                                nearestPlayerOnFirstTick = otherPlayer;
+                            }
+                        }
+                    }
+                }
+
+                if (nearestPlayerOnFirstTick != null) {
+                    Vec3 targetPos = player.position().add(player.getDeltaMovement());
+                    if (nearestPlayerOnFirstTick.position().distanceTo(targetPos) > 128) {
+                        Vec3 currentMotion = player.getDeltaMovement();
+                        player.setDeltaMovement(currentMotion.multiply(-1, 1, -1));
+                    }
+                }
+
                 player.noPhysics = noClip;
                 player.setNoGravity(false);
+
                 ci.cancel();
                 return;
-            }
-
-            boolean doAirplaneFlight = config.editorMovement.flightDirection == MovementDirection.CAMERA || config.editorMovement.flightMomentum < 0.98 ||
-                config.editorMovement.flightLockX || config.editorMovement.flightLockY || config.editorMovement.flightLockZ;
-            if (doAirplaneFlight && player.getAbilities().flying && !player.isPassenger() && !player.isFallFlying()) {
-                EnhancedFlight.doFlight(player, config, movementInput, this.getFlyingSpeed(), super::travel);
-                ci.cancel();
             }
         }
     }
