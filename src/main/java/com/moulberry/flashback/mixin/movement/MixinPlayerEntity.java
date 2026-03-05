@@ -48,6 +48,23 @@ public abstract class MixinPlayerEntity extends LivingEntity {
         if ((Object)this instanceof LocalPlayer player && Flashback.isInReplay()) {
             FlashbackConfigV1 config = Flashback.getConfig();
 
+            if (player.isSpectator()) {
+                boolean noClip = player.noPhysics;
+                player.noPhysics = false;
+                player.setNoGravity(true);
+
+                super.travel(movementInput);
+                if (!(player.input.keyPresses.jump() || player.input.keyPresses.shift())) {
+                    Vec3 motion = player.getDeltaMovement();
+                    player.setDeltaMovement(motion.x, 0, motion.z);
+                }
+
+                player.noPhysics = noClip;
+                player.setNoGravity(false);
+                ci.cancel();
+                return;
+            }
+
             boolean doAirplaneFlight = config.editorMovement.flightDirection == MovementDirection.CAMERA || config.editorMovement.flightMomentum < 0.98 ||
                 config.editorMovement.flightLockX || config.editorMovement.flightLockY || config.editorMovement.flightLockZ;
             if (doAirplaneFlight && player.getAbilities().flying && !player.isPassenger() && !player.isFallFlying()) {
